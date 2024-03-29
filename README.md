@@ -24,11 +24,13 @@ Most of this stuff is roughly ordered by priority
   - [ ] Mod Menu integration
 
 ### Future plans
+- clean up source code from development
 - Make the mod actually somewhat secure and protected
-  - add section to README about how to send vulnerabilities privately to me
+  - add section to README about how to raise security concerns privately
 - publish to modrinth & maybe curseforge
 - forge/neoforge versions? (need to bring myself up to date about what's going on there)
 - allow for custom oauth urls & endpoints (similar to what Auth Me has)
+- Offline only usernames support? (mostly useless except for allowing players to mess around with username-specific features like Notch's apple drop... also piracy) 
 
 ## License
 Cached Auth is open-sourced software licensed under the [MIT license][license]

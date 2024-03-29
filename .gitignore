@@ -1,6 +1,9 @@
 # User-specific stuff
 .idea/
 
+# hidden variables located here for now
+.run/test_api.run.xml
+
 *.iml
 *.ipr
 *.iws

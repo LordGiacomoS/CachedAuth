@@ -12,12 +12,12 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
-public class Authenticator {
+public class Authenticator { //bunch of stuff here uses `sout` rather than logger, fine for while I'm just testing api, but once Fabric gets involved with this code, it'll yell at me
     public static final String URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
-    public static final String CLIENT_ID = System.getenv("CLIENT_ID");
+    public static final String CLIENT_ID = System.getenv("CLIENT_ID"); //figure out way to obfuscate this beyond env variable, to allow distribution
     public static final String SCOPES = "user.read"; // need to add `XboxLive.signin` scope here... I think
 
-    public static URI setupURI() throws URISyntaxException{
+    public static URI setupURI() throws URISyntaxException {
         return new URIBuilder(URL)
                 .addParameter("client_id", CLIENT_ID)
                 .addParameter("scope", SCOPES)
@@ -38,7 +38,7 @@ public class Authenticator {
         return result;
     }
 
-    public static void test() {
+    public static void test() { //need to clean up this messy error handling at some point
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             URI uri = setupURI();
             String result = getResponse(uri, client);
