@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "cachedauth",
+  "version": "${version}",
+  "name": "CachedAuth",
+  "description": "A mod that allows you to switch between pre-saved accounts without exiting the game.",
+  "authors": [
+    "Lord_GiacomoS"
+  ],
+  "contact": {
+    "website": "https://github.com/l_gs",
+    "repo": "https://github.com/l_gs/CachedAuth"
+  },
+  "license": "MIT",
+  "icon": "assets/cachedauth/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.lordgiacomos.cachedauth.client.CachedAuthClient"
+    ],
+    "main": [
+      "com.lordgiacomos.cachedauth.CachedAuth"
+    ]
+  },
+  "mixins": [
+    "cachedauth.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
