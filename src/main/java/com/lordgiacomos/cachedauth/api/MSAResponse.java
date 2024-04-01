@@ -6,7 +6,7 @@ import com.google.gson.JsonParser;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-class MSAResponse { //should be able to slim this code down and bury it in another class once I'm done with development
+public class MSAResponse { //should be able to slim this code down and bury it in another class once I'm done with development
     String userCode;
     String deviceCode;
     URI verificationUri;
