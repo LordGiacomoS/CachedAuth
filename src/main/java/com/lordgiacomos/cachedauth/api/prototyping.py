@@ -23,9 +23,24 @@ def msaDeviceCode():
     print(req.status_code)
     return req.json()
 
+def postmanPollForAuth(msaInfo):
+    url = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
+
+    payload = 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=' +CLIENT_ID + '&device_code=' + msaInfo["device_code"]
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+    }
+
+    response = requests.request("POST", url, headers=headers, data=payload)
+
+    print(response.text)
+
+
+
 def pollForAuth(msaInfo):
     result = None;
     pollUri = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
+    #pollUri = "https://l_gs.requestcatcher.com/"
     params = {
         "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
         "client_id": CLIENT_ID,
@@ -37,16 +52,25 @@ def pollForAuth(msaInfo):
     #           + msaInfo["device_code"]
     #           )
     print(pollUri)
-    headers = {"Content-Type": "x-www-form-urlencoded"}
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+    #params2 = ""
+    #for k, v in params.items():
+    #    if params2 != "":
+    #        params2 = params2 + "&"
+    #    params2 = params2 + k + "=" + v
+
     req = requests.post(pollUri, headers=headers, data=params)
+    print(req.request.body)
     print(req.status_code)
-    #print(req.content)
-    print(json.dumps(json.loads(req.content), indent=2))
+    print(req.content)
+    #print(json.dumps(json.loads(req.content), indent=2))
 
 
 def test():
     response = msaDeviceCode()
     pollForAuth(response)
+    #postmanPollForAuth(response)
     #print(ujson.dumps(response, indent=2))
 
 
