@@ -39,8 +39,8 @@ def postmanPollForAuth(msaInfo):
 
 def pollForAuth(msaInfo):
     result = None;
-    pollUri = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
-    #pollUri = "https://l_gs.requestcatcher.com/"
+    #pollUri = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
+    pollUri = "https://l_gs.requestcatcher.com/"
     params = {
         "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
         "client_id": CLIENT_ID,

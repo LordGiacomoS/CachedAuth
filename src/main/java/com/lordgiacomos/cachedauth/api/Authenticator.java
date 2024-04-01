@@ -3,6 +3,7 @@ package com.lordgiacomos.cachedauth.api;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -12,6 +13,8 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
@@ -62,13 +65,15 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         String result = "";
 
         //incredibly messy, need to make this url stuff nicer
-        URI pollUri = new URIBuilder("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")
-                .setCustomQuery(
-                        new StringBuilder("grant_type=urn:ietf:params:oauth:grant-type:device_code&clientid=")
+        URI pollUri = new URIBuilder(//"https://l_gs.requestcatcher.com/")
+                "https://login.microsoftonline.com/consumers/oauth2/v2.0/token")
+                /*.setCustomQuery(
+                        new StringBuilder("grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id=")
                                 .append(CLIENT_ID)
                                 .append("&device_code=")
                                 .append(msaInfo.deviceCode)
-                                .toString())
+                                .toString())*/
+                //.addParameter()
                 .build();
 
                 //.addParameter("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
@@ -77,8 +82,13 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
                 //.build();
         System.out.println(pollUri);
         HttpPost post = new HttpPost(pollUri);
-        post.addHeader("Content-Type", "x-www-form-urlencoded");
+        post.addHeader("Content-Type", "application/x-www-form-urlencoded");
+        String body = "grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id=" + CLIENT_ID + "&device_code=" + msaInfo.deviceCode;
+        StringEntity bodyEntity = new StringEntity(body, ContentType.APPLICATION_FORM_URLENCODED);
+        post.setEntity(bodyEntity);
 
+        System.out.println(post.getEntity().toString());
+        System.out.println(Arrays.toString(post.getAllHeaders()));
         //for (int i = msaInfo.expiresInSeconds; i > 0; i=i- msaInfo.interval) {
         CloseableHttpResponse response = client.execute(post);
         System.out.println(response.getStatusLine().getStatusCode());
@@ -100,13 +110,14 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         try {
             CloseableHttpClient client = HttpClients.createDefault();
             MSAResponse response = msaDeviceCode(client);
-            System.out.println(response.userCode);
+            /*System.out.println(response.userCode);
             System.out.println(response.deviceCode);
             System.out.println(response.verificationUri);
             System.out.println(response.expiresInSeconds);
             System.out.println(response.interval);
             System.out.println(response.message);
-            //pollForAuth(response, client);
+            */
+            pollForAuth(response, client);
 
         } catch (URISyntaxException ex) {
             System.out.println("uri syntax problems");
@@ -114,9 +125,9 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         } catch (IOException ex2) {
             System.out.println("io problems");
             System.out.println(ex2.getMessage());
-        //} catch (InterruptedException e) {
-        //    System.out.println("interruption problems");
-        //    System.out.println(e.getMessage());
+        } catch (InterruptedException e) {
+            System.out.println("interruption problems");
+            System.out.println(e.getMessage());
         }
 
 
