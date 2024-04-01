@@ -100,7 +100,13 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         try {
             CloseableHttpClient client = HttpClients.createDefault();
             MSAResponse response = msaDeviceCode(client);
-            pollForAuth(response, client);
+            System.out.println(response.userCode);
+            System.out.println(response.deviceCode);
+            System.out.println(response.verificationUri);
+            System.out.println(response.expiresInSeconds);
+            System.out.println(response.interval);
+            System.out.println(response.message);
+            //pollForAuth(response, client);
 
         } catch (URISyntaxException ex) {
             System.out.println("uri syntax problems");
@@ -108,9 +114,9 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         } catch (IOException ex2) {
             System.out.println("io problems");
             System.out.println(ex2.getMessage());
-        } catch (InterruptedException e) {
-            System.out.println("interruption problems");
-            System.out.println(e.getMessage());
+        //} catch (InterruptedException e) {
+        //    System.out.println("interruption problems");
+        //    System.out.println(e.getMessage());
         }
 
 
