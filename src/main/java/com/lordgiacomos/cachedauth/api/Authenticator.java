@@ -1,6 +1,7 @@
 package com.lordgiacomos.cachedauth.api;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 
@@ -10,7 +11,11 @@ import com.lordgiacomos.cachedauth.CachedAuthException;
 import com.lordgiacomos.cachedauth.api.responses.MsaCodeResponse;
 import com.lordgiacomos.cachedauth.api.responses.MsaTokenResponse;
 import com.lordgiacomos.cachedauth.config.AuthenticationProfile;
+import com.lordgiacomos.cachedauth.config.CachedAuthConfig;
+import com.lordgiacomos.cachedauth.config.CachedAuthConfigManager;
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -31,9 +36,17 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     public static final String XBOX_AUTH_URI = "https://user.auth.xboxlive.com/user/authenticate";
     public static final String CLIENT_ID = System.getenv("CLIENT_ID"); //figure out way to obfuscate this beyond env variable, to allow distribution
     public static final String SCOPES = "XBoxLive.signin offline_access";//"user.read profile openid offline_access XBoxLive.signin"; // need to add `XboxLive.signin` scope here... I think
+    public static final RequestConfig REQUEST_CONFIG = RequestConfig
+            .custom()
+            .setConnectionRequestTimeout(30_000)
+            .setConnectTimeout(30_000)
+            .setSocketTimeout(30_000)
+            .build();
+
 
     public static HttpPost setupRefreshPost(String refreshToken) {
         HttpPost post = new HttpPost(MSA_TOKEN_URI);
+        post.setConfig(REQUEST_CONFIG);
         post.addHeader("Content-Type", "application/x-www-form-urlencoded");
         post.setEntity(
                 new StringEntity(
@@ -53,6 +66,7 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
                     .build()
             );
             request.addHeader("Content-Type", "x-www-form-urlencoded");
+            request.setConfig(REQUEST_CONFIG);
             return request;
         } catch (URISyntaxException e) {
             throw new CachedAuthException("Issue with setting up request for device code", e);
@@ -61,6 +75,7 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
 
     public static HttpPost setupPollPost(MsaCodeResponse msaInfo) {
         HttpPost post = new HttpPost(MSA_TOKEN_URI);
+        post.setConfig(REQUEST_CONFIG);
         post.addHeader("Content-Type", "application/x-www-form-urlencoded");
         post.setEntity(
                 new StringEntity(
@@ -71,27 +86,46 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         return post;
     }
 
-    public static HttpPost setupXboxLiveAuth(MsaTokenResponse pollInfo) {
+    public static HttpPost setupXboxLiveAuth(MsaTokenResponse pollInfo) throws UnsupportedEncodingException {
         HttpPost post = new HttpPost(XBOX_AUTH_URI);
+        post.setConfig(REQUEST_CONFIG);
         post.addHeader("Content-Type", "application/json");
         post.addHeader("Accept", "application/json");
 
-        JsonObject postJson = new JsonObject();
+        /*JsonObject postJson = new JsonObject();
         JsonObject properties = new JsonObject();
         properties.addProperty("AuthMethod", "RPS");
         properties.addProperty("SiteName", "user.auth.xboxlive.com");
-        properties.addProperty("RpsTicket", "d="+pollInfo.accessToken);
+        properties.addProperty("RpsTicket", "d=" + pollInfo.accessToken);
 
         postJson.add("Properties", properties);
         postJson.addProperty("RelyingParty", "http://user.auth.xboxlive.com");
-        postJson.addProperty("TokenType", "JWT");
+        postJson.addProperty("TokenType", "JWT");*/
 
+        /*String postJson = String.format("""
+                {
+                    "Properties": {
+                        "AuthMethod": "RPS",
+                        "SiteName": "user.auth.xboxlive.com",
+                        "RpsTicket": "d=%s"
+                    },
+                    "RelyingParty": "https://user.auth.xboxlive.com",
+                    "TokenType": "JWT"
+                }""", pollInfo.accessToken);
+        System.out.println(postJson);*/
         post.setEntity(
-                new StringEntity(
-                        postJson.toString(),
-                        ContentType.APPLICATION_JSON
-                )
-        );
+            new StringEntity(
+                String.format("""
+                    {
+                        "Properties": {
+                            "AuthMethod": "RPS",
+                            "SiteName": "user.auth.xboxlive.com",
+                            "RpsTicket": "d=%s"
+                        },
+                        "RelyingParty": "http://user.auth.xboxlive.com",
+                        "TokenType": "JWT"
+                    }""", pollInfo.accessToken)
+            ));
         return post;
     }
 
@@ -171,12 +205,15 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         }
     }
 
-    public static XblResponse authXboxLive(MsaTokenResponse pollInfo, CloseableHttpClient client) throws CachedAuthException {
-        try (CloseableHttpResponse request = client.execute(setupXboxLiveAuth(pollInfo))) {
+    public static XblResponse authXboxLive(MsaTokenResponse pollInfo) throws CachedAuthException { //, CloseableHttpClient client
+        try (CloseableHttpClient client = HttpClients.createMinimal()) {
+            CloseableHttpResponse request = client.execute(setupXboxLiveAuth(pollInfo));
             int statusCode = request.getStatusLine().getStatusCode();
             System.out.println(statusCode);
             String output = EntityUtils.toString(request.getEntity());
 
+
+            System.out.println();
             if (statusCode == 200) {
                 System.out.println(output);
                 return new XblResponse(statusCode, output);
@@ -192,11 +229,14 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
 
 
     public static void testDeviceFlow() { //need to clean up this messy error handling at some point
+        AuthenticationProfile authenticationProfile = CachedAuthConfig.getAuthenticationProfiles().get(0);
         try {
             CloseableHttpClient client = HttpClients.createDefault();
             MsaCodeResponse msa = getMsaResponse(client);
             MsaTokenResponse polled = pollForMicrosoftAuth(msa, client);
-            XblResponse xbl = authXboxLive(polled, client);
+            authenticationProfile.setAccessToken(polled.accessToken);
+            authenticationProfile.setRefreshToken(polled.refreshToken);
+            XblResponse xbl = authXboxLive(polled);//, client);
         } catch (CachedAuthException e) {
             System.out.println("problems");
             System.out.println(e.getMessage());
@@ -211,11 +251,16 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
             //update authentication profile info here
             authenticationProfile.setAccessToken(refreshed.accessToken);
             authenticationProfile.setRefreshToken(refreshed.refreshToken);
-            XblResponse xbl = authXboxLive(refreshed, client);
+
+            XblResponse xbl = authXboxLive(refreshed);//, client);
+
         } catch (CachedAuthException e) {
             System.out.println("problems");
             System.out.println(e.getMessage());
             System.out.println(Arrays.toString(e.getStackTrace()));
+        } catch (Exception e) {
+            CachedAuthConfigManager.save();
+            throw e;
         }
     }
 }

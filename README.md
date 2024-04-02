@@ -38,7 +38,10 @@ Most of this stuff is roughly ordered by priority
   - revisit error handling and make it actually good (do I really need custom exception?)
   - remove unnecessary stuff from authentication json parsers & implement datetime handling where necessary
   - move some of authenticator stuff into AuthorizationSession and other relevant classes(?)
+  - convert json deserialization to JsonHelper.deserialize method instead of doing it all by hand
 - Make the mod actually somewhat secure and protected
+  - adjust access modifiers to be as narrow and limiting as possible
+  - obfuscation of token info?
   - add section to README about how to raise security concerns privately
 - Add debug mode
 - publish to modrinth & maybe curseforge
