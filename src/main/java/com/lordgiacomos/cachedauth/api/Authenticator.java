@@ -1,17 +1,14 @@
 package com.lordgiacomos.cachedauth.api;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.lordgiacomos.cachedauth.api.responses.MSAResponse;
 import com.lordgiacomos.cachedauth.api.responses.PollResponse;
 import org.apache.http.HttpEntity;
-import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -29,14 +26,21 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     public static final String TENANT = "consumers"; // can't use common bc xbox doesn't like that
     public static final String MSA_URI = "https://login.microsoftonline.com/" + TENANT + "/oauth2/v2.0/devicecode";
     public static final String POLL_URI = "https://login.microsoftonline.com/" + TENANT + "/oauth2/v2.0/token";
+    public static final String XBOX_URI = "https://user.auth.xboxlive.com/user/authenticate";
     public static final String CLIENT_ID = System.getenv("CLIENT_ID"); //figure out way to obfuscate this beyond env variable, to allow distribution
     public static final String SCOPES = "user.read offline_access XBoxLive.signin"; // need to add `XboxLive.signin` scope here... I think
 
-    public static URI setupMsaUri() throws URISyntaxException {
-        return new URIBuilder(MSA_URI)
-                .addParameter("client_id", CLIENT_ID)
-                .addParameter("scope", SCOPES)
-                .build();
+
+
+    public static HttpGet setupMsaRequest() throws URISyntaxException {
+        HttpGet request = new HttpGet(
+                new URIBuilder(MSA_URI)
+                        .addParameter("client_id", CLIENT_ID)
+                        .addParameter("scope", SCOPES)
+                        .build()
+        );
+        request.addHeader("Content-Type", "x-www-form-urlencoded");
+        return request;
     }
 
     public static HttpPost setupPollPost(MSAResponse msaInfo) {
@@ -51,59 +55,64 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         return post;
     }
 
+    public static HttpPost setupXboxLiveAuth(PollResponse pollInfo) {
+        HttpPost post = new HttpPost(XBOX_URI);
+        post.addHeader("Content-Type", "application/json");
+        post.addHeader("Accept", "application/json");
+
+        JsonObject postJson = new JsonObject();
+        JsonObject properties = new JsonObject();
+        properties.addProperty("AuthMethod", "RPS");
+        properties.addProperty("SiteName", "user.auth.xboxlive.com");
+        properties.addProperty("RpsTicket", "d="+pollInfo.accessToken);
+
+        postJson.add("Properties", properties);
+        postJson.addProperty("RelyingParty", "http://user.auth.xboxlive.com");
+        postJson.addProperty("TokenType", "JWT");
+
+        post.setEntity(
+                new StringEntity(
+                        postJson.getAsString(),
+                        ContentType.APPLICATION_JSON
+                )
+        );
+        return post;
+    }
+
     public static MSAResponse getMSAResponse(CloseableHttpClient client) throws Exception {
-        HttpGet request = new HttpGet(setupMsaUri());
-        request.addHeader("Content-Type", "x-www-form-urlencoded");
-        try (CloseableHttpResponse response = client.execute(request)) {
-            System.out.println(response.getStatusLine().getStatusCode());
-            HttpEntity entity = response.getEntity();
+        try (CloseableHttpResponse request = client.execute(setupMsaRequest())) {
+            int statusCode = request.getStatusLine().getStatusCode();
+            System.out.println(statusCode);
+            HttpEntity entity = request.getEntity();
 
             if (entity != null) {
+                String output = EntityUtils.toString(entity);
+                System.out.println(output);
                 return new MSAResponse(
-                        response.getStatusLine().getStatusCode(),
-                        EntityUtils.toString(entity)
+                        statusCode,
+                        output
                 );
             } else {
-                throw new Exception("MSA response invalid"); //need to figure out what should go here
+                throw new Exception("MSA request invalid"); //need to figure out what Exception should actually go here
             }
         }
     }
 
-
-
-
-
-    /*public static PollResponse pollOnce(CloseableHttpClient client, HttpPost pollingPost) throws Exception {
-        CloseableHttpResponse request = client.execute(pollingPost);
-        System.out.println(request.getStatusLine().getStatusCode());
-        if (request.getStatusLine().getStatusCode() == 200) {
-            PollResponse response = new PollResponse(request.getStatusLine().getStatusCode())
-
-        } else {
-            try {
-                ErrorResponse response = new ErrorResponse(request.getStatusLine().getStatusCode());
-
-            } catch (Exception e) {
-                System.out.println(e.getClass());
-            }
-            throw new Exception("issues with polling");
-        }
-    }*/
-
-
-    public static PollResponse pollForAuth(MSAResponse msaInfo, CloseableHttpClient client) throws Exception {
+    public static PollResponse pollForMicrosoftAuth(MSAResponse msaInfo, CloseableHttpClient client) throws IOException, URISyntaxException, Exception {
         HttpPost pollingPost = setupPollPost(msaInfo);
         PollResponse response = null;
         for (int i = msaInfo.expiresInSeconds; i > 0; i=i- msaInfo.interval) {
             CloseableHttpResponse request = client.execute(pollingPost);
             int statusCode = request.getStatusLine().getStatusCode();
             System.out.println(statusCode);
+            String output = EntityUtils.toString(request.getEntity());
+            System.out.println(output);
             try {
                 if (statusCode == 200) {
-                    response = new PollResponse(statusCode, pollingPost.getEntity().toString());
+                    response = new PollResponse(statusCode, output);
                     break;
                 } else {
-                    ErrorResponse errorResponse = new ErrorResponse(statusCode, pollingPost.getEntity().toString());
+                    ErrorResponse errorResponse = new ErrorResponse(statusCode, output);
                     if ("authorization_pending" != errorResponse.error) {
                         throw new Exception(
                                 "Issue with authorization checking: `" + errorResponse.error + "`: `" + errorResponse.errorDescription + "`"
@@ -113,22 +122,28 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
             } catch (JsonSyntaxException ex) {
                 System.out.println("issues with parsing error response");
                 System.out.println(ex.getMessage());
+                System.out.println(output);
             }
             Thread.sleep(msaInfo.interval*1000L);
-        }
+        } //im sure there's a better way to do timing stuff using fabric
         //ideally I'd move the poll request to a separate method, but doing so would complicate error handling significantly
         return response;
     }
 
 
-
+    public static void authXboxLive(PollResponse pollInfo, CloseableHttpClient client) throws IOException {
+        try (CloseableHttpResponse request = client.execute(setupXboxLiveAuth(pollInfo))) {
+            int statusCode = request.getStatusLine().getStatusCode();
+            System.out.println(EntityUtils.toString(request.getEntity()));
+        }
+    }
 
     public static void test() { //need to clean up this messy error handling at some point
         try {
             CloseableHttpClient client = HttpClients.createDefault();
             MSAResponse msa = getMSAResponse(client);
-            PollResponse polled = pollForAuth(msa, client);
-            //
+            PollResponse polled = pollForMicrosoftAuth(msa, client);
+            authXboxLive(polled, client);
 
 
         } catch (URISyntaxException ex) {
