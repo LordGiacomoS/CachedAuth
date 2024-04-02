@@ -3,8 +3,6 @@ package com.lordgiacomos.cachedauth.api;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Arrays;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
@@ -30,16 +28,16 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     public static final String TENANT = "consumers"; // can't use common bc xbox doesn't like that
     public static final String MSA_CODE_URI = "https://login.microsoftonline.com/" + TENANT + "/oauth2/v2.0/devicecode";
     public static final String MSA_TOKEN_URI = "https://login.microsoftonline.com/" + TENANT + "/oauth2/v2.0/token";
-    public static final String XBOX_URI = "https://user.auth.xboxlive.com/user/authenticate";
+    public static final String XBOX_AUTH_URI = "https://user.auth.xboxlive.com/user/authenticate";
     public static final String CLIENT_ID = System.getenv("CLIENT_ID"); //figure out way to obfuscate this beyond env variable, to allow distribution
-    public static final String SCOPES = "user.read offline_access XBoxLive.signin"; // need to add `XboxLive.signin` scope here... I think
+    public static final String SCOPES = "XBoxLive.signin offline_access";//"user.read profile openid offline_access XBoxLive.signin"; // need to add `XboxLive.signin` scope here... I think
 
-    public static HttpPost setupRefreshPost(AuthenticationProfile authenticationProfile) {
-        HttpPost post = new HttpPost(MSA_CODE_URI);
+    public static HttpPost setupRefreshPost(String refreshToken) {
+        HttpPost post = new HttpPost(MSA_TOKEN_URI);
         post.addHeader("Content-Type", "application/x-www-form-urlencoded");
         post.setEntity(
                 new StringEntity(
-                        "grant_type=refresh_token&client_id=" + CLIENT_ID + "&refresh_token=" + authenticationProfile.refreshToken,
+                        "grant_type=refresh_token&client_id=" + CLIENT_ID + "&refresh_token=" + refreshToken,
                         ContentType.APPLICATION_FORM_URLENCODED
                 )
         );
@@ -74,7 +72,7 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     }
 
     public static HttpPost setupXboxLiveAuth(MsaTokenResponse pollInfo) {
-        HttpPost post = new HttpPost(XBOX_URI);
+        HttpPost post = new HttpPost(XBOX_AUTH_URI);
         post.addHeader("Content-Type", "application/json");
         post.addHeader("Accept", "application/json");
 
@@ -90,7 +88,7 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
 
         post.setEntity(
                 new StringEntity(
-                        postJson.getAsString(),
+                        postJson.toString(),
                         ContentType.APPLICATION_JSON
                 )
         );
@@ -98,12 +96,13 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     }
 
 
-    public static MsaTokenResponse refreshFromToken(AuthenticationProfile authenticationProfile, CloseableHttpClient client) throws CachedAuthException {
-        try (CloseableHttpResponse request = client.execute(setupRefreshPost(authenticationProfile))) {
+    public static MsaTokenResponse refreshFromToken(String refreshToken, CloseableHttpClient client) throws CachedAuthException {
+        try (CloseableHttpResponse request = client.execute(setupRefreshPost(refreshToken))) {
             int statusCode = request.getStatusLine().getStatusCode();
             System.out.println(statusCode);
             String output = EntityUtils.toString(request.getEntity());
 
+            System.out.println(output);
             MsaTokenResponse response = new MsaTokenResponse(statusCode, output);
             if (statusCode == 200) {
                 return response;
@@ -138,8 +137,9 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     public static MsaTokenResponse pollMicrosoftOnce(HttpPost pollingPost, CloseableHttpClient client) throws CachedAuthException {
         try (CloseableHttpResponse request = client.execute(pollingPost)) {
             int statusCode = request.getStatusLine().getStatusCode();
-            System.out.println(statusCode);
+            //System.out.println(statusCode);
             String output = EntityUtils.toString(request.getEntity());
+            System.out.println(output);
             return new MsaTokenResponse(statusCode, output);
         } catch (JsonSyntaxException e) {
             throw new CachedAuthException("Issue with parsing response from MSA Token polling.", e);
@@ -150,8 +150,8 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     public static MsaTokenResponse pollForMicrosoftAuth(MsaCodeResponse msaInfo, CloseableHttpClient client) throws CachedAuthException {
         try {
             HttpPost pollingPost = setupPollPost(msaInfo);
-            System.out.println(msaInfo.expiresInSeconds);
-            System.out.println(msaInfo.interval);
+            //System.out.println(msaInfo.expiresInSeconds);
+            //System.out.println(msaInfo.interval);
             for (int i = msaInfo.expiresInSeconds; i > 0; i=i-msaInfo.interval) {
                 System.out.println(i);
                 MsaTokenResponse response = pollMicrosoftOnce(pollingPost, client);
@@ -182,6 +182,7 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
                 return new XblResponse(statusCode, output);
             } else {
                 System.out.println(output);
+                System.out.println(request);
                 throw new CachedAuthException("Xbox Live not happy");
             }
         } catch (IOException e) {
@@ -203,10 +204,14 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         }
     }
 
-    public static void refreshTokenAuth(AuthenticationProfile authenticationProfile) {
+    public static void fromRefreshTokenAuth(AuthenticationProfile authenticationProfile) {
         try {
             CloseableHttpClient client = HttpClients.createDefault();
-            MsaTokenResponse refreshed = refreshFromToken(authenticationProfile, client);
+            MsaTokenResponse refreshed = refreshFromToken(authenticationProfile.refreshToken, client);
+            //update authentication profile info here
+            authenticationProfile.setAccessToken(refreshed.accessToken);
+            authenticationProfile.setRefreshToken(refreshed.refreshToken);
+            XblResponse xbl = authXboxLive(refreshed, client);
         } catch (CachedAuthException e) {
             System.out.println("problems");
             System.out.println(e.getMessage());

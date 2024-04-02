@@ -3,6 +3,7 @@
 
 # hidden variables located here for now
 .run/test_api.run.xml
+config.json
 
 *.iml
 *.ipr

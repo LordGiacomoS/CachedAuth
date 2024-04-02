@@ -17,7 +17,7 @@ public class CachedAuthConfigManager {
             return;
         }
         //file = new File(FabricLoader.getInstance().getConfigDir().toFile(), CachedAuthClientInit.MOD_ID.toLowerCase(Locale.ROOT) + ".json");
-        file = new File(new File(System.getProperty("CWD")), "config.json");
+        file = new File(System.getenv("CWD"), "config.json");
     }
 
     public static void load() {
@@ -58,7 +58,7 @@ public class CachedAuthConfigManager {
         config.add("savedProfiles", savedProfiles);
 
         //String jsonString = CachedAuthClientInit.GSON.toJson(config);
-        String jsonString = config.getAsString();
+        String jsonString = CachedAuthConfig.GSON.toJson(config);
         try (FileWriter fileWriter = new FileWriter(file)) {
             fileWriter.write(jsonString);
         } catch (IOException e) {

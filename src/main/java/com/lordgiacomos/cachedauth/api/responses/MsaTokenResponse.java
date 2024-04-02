@@ -12,7 +12,6 @@ public class MsaTokenResponse extends GenericResponse {
     public String idToken;
 
 
-
     public MsaTokenResponse(int statusCode) {
         super(statusCode);
     }
@@ -34,7 +33,7 @@ public class MsaTokenResponse extends GenericResponse {
         this.expiresInSeconds = json.get("expires_in").getAsInt();
         this.accessToken = json.get("access_token").getAsString();
         this.refreshToken = json.get("refresh_token").getAsString();
-        this.idToken = json.get("id_token").getAsString();
+        //this.idToken = json.get("id_token").getAsString(); //not using openid anymore so this isn't needed
     }
 
 }
