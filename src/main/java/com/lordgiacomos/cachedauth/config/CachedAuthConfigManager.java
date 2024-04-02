@@ -31,10 +31,10 @@ public class CachedAuthConfigManager {
             JsonObject json = JsonParser.parseReader(br).getAsJsonObject();
 
             CachedAuthConfig.setModEnabled(json.get("modEnabled").getAsBoolean());
-            CachedAuthConfig.setSavedAccounts(
+            CachedAuthConfig.setAuthenticationProfiles(
                 new ArrayList<>() {{
-                    for (JsonElement accountElement : json.getAsJsonArray("savedAccounts")) {
-                        add(new SavedAccount((JsonObject) accountElement));
+                    for (JsonElement accountElement : json.getAsJsonArray("savedProfiles")) {
+                        add(new AuthenticationProfile((JsonObject) accountElement));
                     }
                 }}
             );
@@ -51,11 +51,11 @@ public class CachedAuthConfigManager {
 
         JsonObject config = new JsonObject();
         config.addProperty("modEnabled", CachedAuthConfig.getModEnabled());
-        JsonArray savedAccounts = new JsonArray();
-        for (SavedAccount savedAccount : CachedAuthConfig.getSavedAccounts()) {
-            savedAccounts.add(savedAccount.getJsonOutput());
+        JsonArray savedProfiles = new JsonArray();
+        for (AuthenticationProfile authenticationProfile : CachedAuthConfig.getAuthenticationProfiles()) {
+            savedProfiles.add(authenticationProfile.getJsonOutput());
         } // this loop is nice & laconic compared to my last config file, I love it
-        config.add("savedAccounts", savedAccounts);
+        config.add("savedProfiles", savedProfiles);
 
         //String jsonString = CachedAuthClientInit.GSON.toJson(config);
         String jsonString = config.getAsString();

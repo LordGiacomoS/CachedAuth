@@ -3,7 +3,7 @@ package com.lordgiacomos.cachedauth.api.responses;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-public class PollResponse extends GenericResponse {
+public class MsaTokenResponse extends GenericResponse {
     public String tokenType;
     public String scope;
     public int expiresInSeconds;
@@ -13,11 +13,11 @@ public class PollResponse extends GenericResponse {
 
 
 
-    public PollResponse(int statusCode) {
+    public MsaTokenResponse(int statusCode) {
         super(statusCode);
     }
 
-    public PollResponse(int statusCode, String responseString) {
+    public MsaTokenResponse(int statusCode, String responseString) {
         super(statusCode);
         parseResponseString(responseString);
     }

@@ -21,19 +21,26 @@ public class ErrorResponse extends GenericResponse {
     public ErrorResponse(int statusCode) {
         super(statusCode);
     }
-    public ErrorResponse(int statusCode, String responseString) throws URISyntaxException {
+    public ErrorResponse(int statusCode, String responseString) {
         super(statusCode);
         JsonObject json = JsonParser.parseString(responseString).getAsJsonObject();
         error = json.get("error").getAsString();
         errorDescription = json.get("error_description").getAsString();
-        errorCodes = new ArrayList<Integer>() {{
-            for (JsonElement element: json.getAsJsonArray("error_codes")) {
+        errorCodes = new ArrayList<>() {{
+            for (JsonElement element : json.getAsJsonArray("error_codes")) {
                 add(element.getAsInt());
             }
         }};
         timestamp = json.get("timestamp").getAsString();
         traceId = json.get("trace_id").getAsString();
         correlationId = json.get("correlation_id").getAsString();
-        errorUri = new URI(json.get("error_uri").getAsString());
+        try {
+            errorUri = new URI(json.get("error_uri").getAsString());
+        } catch (URISyntaxException e) {
+            System.out.println("could not parse error URI");
+            System.out.println(e.getMessage());
+            //throw new CachedAuthException("Could not parse ErrorResponse URI", e);
+            //error uri not that important so I can get away with ignoring it unless I'm debugging this
+        }
     }
 }

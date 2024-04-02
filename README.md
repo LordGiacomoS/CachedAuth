@@ -33,10 +33,12 @@ Most of this stuff is roughly ordered by priority
   - [ ] Mod Menu integration
 
 ### Future plans
-- clean up source code from development
+- clean up source code from development 
   - keep my development comments alive in a development branch but filter it all out from master branch
+  - revisit error handling and make it actually good (do I really need custom exception)
 - Make the mod actually somewhat secure and protected
   - add section to README about how to raise security concerns privately
+- Add debug mode
 - publish to modrinth & maybe curseforge
 - forge/neoforge versions? (need to bring myself up to date about what's going on there)
 - allow for custom oauth urls & endpoints (similar to what Auth Me has)

@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 public class CachedAuthConfig {
     private static boolean modEnabled = true;
-    private static ArrayList<SavedAccount> savedAccounts = new ArrayList<>();
+    private static ArrayList<AuthenticationProfile> authenticationProfiles = new ArrayList<>();
 
 
 
@@ -12,8 +12,8 @@ public class CachedAuthConfig {
     public static void setModEnabled(boolean value) {
         modEnabled = value;
     }
-    public static void setSavedAccounts(ArrayList<SavedAccount> value) {
-        savedAccounts = value;
+    public static void setAuthenticationProfiles(ArrayList<AuthenticationProfile> value) {
+        authenticationProfiles = value;
     } //add ordering of accounts later
 
 
@@ -22,7 +22,7 @@ public class CachedAuthConfig {
     public static boolean getModEnabled() {
         return modEnabled;
     }
-    public static ArrayList<SavedAccount> getSavedAccounts() {
-        return savedAccounts;
+    public static ArrayList<AuthenticationProfile> getAuthenticationProfiles() {
+        return authenticationProfiles;
     }
 }
