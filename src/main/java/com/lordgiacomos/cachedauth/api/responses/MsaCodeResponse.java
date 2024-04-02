@@ -2,7 +2,6 @@ package com.lordgiacomos.cachedauth.api.responses;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.lordgiacomos.cachedauth.CachedAuthException;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -15,9 +14,16 @@ public class MsaCodeResponse extends GenericResponse { //should be able to slim 
     public int interval; // how often (in seconds), client should check if code has been submitted through microsoft account
     public String message;
 
-
     public MsaCodeResponse(int statusCode) {
         super(statusCode);
+    }
+    public MsaCodeResponse(int statusCode, String responseString, boolean failure) {
+        super(statusCode);
+        if (failure) {
+            setErrorResponse(responseString);
+        } else {
+            parseResponseString(responseString);
+        }
     }
 
     public MsaCodeResponse(int statusCode, String responseString) {

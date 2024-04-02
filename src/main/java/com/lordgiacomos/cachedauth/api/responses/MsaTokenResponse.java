@@ -17,9 +17,14 @@ public class MsaTokenResponse extends GenericResponse {
         super(statusCode);
     }
 
+
     public MsaTokenResponse(int statusCode, String responseString) {
         super(statusCode);
-        parseResponseString(responseString);
+        if (statusCode == 200) {
+            parseResponseString(responseString);
+        } else {
+            setErrorResponse(responseString);
+        }
     }
 
     private void parseResponseString(String responseString) {

@@ -34,6 +34,18 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
 
 
 
+    public static HttpPost setupRefreshPost(AuthenticationProfile authenticationProfile) {
+        HttpPost post = new HttpPost(MSA_CODE_URI);
+        post.addHeader("Content-Type", "application/x-www-form-urlencoded");
+        post.setEntity(
+                new StringEntity(
+                        "grant_type=refresh_token&client_id=" + CLIENT_ID + "&refresh_token=" + authenticationProfile.refreshToken,
+                        ContentType.APPLICATION_FORM_URLENCODED
+                )
+        );
+        return post;
+    }
+
     public static HttpGet setupMsaRequest() throws CachedAuthException {
         try {
             HttpGet request = new HttpGet(
@@ -55,18 +67,6 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         post.setEntity(
                 new StringEntity(
                         "grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id=" + CLIENT_ID + "&device_code=" + msaInfo.deviceCode,
-                        ContentType.APPLICATION_FORM_URLENCODED
-                )
-        );
-        return post;
-    }
-
-    public static HttpPost setupRefreshPost(AuthenticationProfile authenticationProfile) {
-        HttpPost post = new HttpPost(MSA_CODE_URI);
-        post.addHeader("Content-Type", "application/x-www-form-urlencoded");
-        post.setEntity(
-                new StringEntity(
-                        "grant_type=refresh_token&client_id=" + CLIENT_ID + "&refresh_token=" + authenticationProfile.refreshToken,
                         ContentType.APPLICATION_FORM_URLENCODED
                 )
         );
@@ -97,7 +97,27 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         return post;
     }
 
-    public static MsaCodeResponse getMSAResponse(CloseableHttpClient client) throws CachedAuthException {
+
+    public static MsaTokenResponse refreshFromToken(AuthenticationProfile authenticationProfile, CloseableHttpClient client) throws CachedAuthException {
+        try (CloseableHttpResponse request = client.execute(setupRefreshPost(authenticationProfile))) {
+            int statusCode = request.getStatusLine().getStatusCode();
+            System.out.println(statusCode);
+            String output = EntityUtils.toString(request.getEntity());
+
+            MsaTokenResponse response = new MsaTokenResponse(statusCode, output);
+            if (statusCode == 200) {
+                return response;
+            } else {
+                throw new CachedAuthException(
+                        "Issue with authorization checking: `" + response.errorResponse.error + "`: `" + response.errorResponse.errorDescription + "`"
+                ); //figure out what specific exception I should use here
+            }
+        } catch (IOException e) {
+            throw new CachedAuthException("Could not establish contact with Microsoft.", e);
+        }
+    }
+
+    public static MsaCodeResponse getMsaResponse(CloseableHttpClient client) throws CachedAuthException {
         try (CloseableHttpResponse request = client.execute(setupMsaRequest())) {
             int statusCode = request.getStatusLine().getStatusCode();
             System.out.println(statusCode);
@@ -115,93 +135,70 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         }
     }
 
-    public static MsaTokenResponse pollForMicrosoftAuth(MsaCodeResponse msaInfo, CloseableHttpClient client) throws CachedAuthException {
-        HttpPost pollingPost = setupPollPost(msaInfo);
-        MsaTokenResponse response = null;
-        try {
-            for (int i = msaInfo.expiresInSeconds; i > 0; i = i - msaInfo.interval) {
-                CloseableHttpResponse request = client.execute(pollingPost);
-                int statusCode = request.getStatusLine().getStatusCode();
-                System.out.println(statusCode);
-                String output = EntityUtils.toString(request.getEntity());
-                //System.out.println(output);
-                try {
-                    if (statusCode == 200) {
-                        response = new MsaTokenResponse(statusCode, output);
-                        break;
-                    } else {
-                        ErrorResponse errorResponse = new ErrorResponse(statusCode, output);
-                        if ("authorization_pending" != errorResponse.error) {
-                            throw new CachedAuthException(
-                                    "Issue with authorization checking: `" + errorResponse.error + "`: `" + errorResponse.errorDescription + "`."
-                            ); //figure out what specific exception I should use here
-                        }
-                    }
-                } catch (JsonSyntaxException ex) {
-                    throw new CachedAuthException("Issue with parsing error response from MSA Token polling.", ex);
-                }
-                Thread.sleep(msaInfo.interval * 1000L);
-            } //im sure there's a better way to do timing stuff using fabric
-            //ideally I'd move the poll request to a separate method, but doing so would complicate error handling significantly
-        } catch (IOException e) {
-            throw new CachedAuthException("Could not establish contact with Microsoft.", e);
-        } catch (InterruptedException e) {
-            throw new CachedAuthException("Timing of polling was interrupted.", e);
-        }
-        return response;
-    }
-
-    public static MsaTokenResponse refreshFromToken(AuthenticationProfile authenticationProfile, CloseableHttpClient client) throws CachedAuthException {
-        try (CloseableHttpResponse request = client.execute(setupRefreshPost(authenticationProfile))) {
+    public static MsaTokenResponse pollMicrosoftOnce(HttpPost pollingPost, CloseableHttpClient client) throws CachedAuthException {
+        try (CloseableHttpResponse request = client.execute(pollingPost)) {
             int statusCode = request.getStatusLine().getStatusCode();
             System.out.println(statusCode);
             String output = EntityUtils.toString(request.getEntity());
-
-            if (statusCode == 200) {
-                return new MsaTokenResponse(statusCode, output);
-            } else {
-                ErrorResponse errorResponse = new ErrorResponse(statusCode, output);
-                throw new CachedAuthException(
-                            "Issue with authorization checking: `" + errorResponse.error + "`: `" + errorResponse.errorDescription + "`"
-                    ); //figure out what specific exception I should use here
-            }
+            return new MsaTokenResponse(statusCode, output);
+        } catch (JsonSyntaxException e) {
+            throw new CachedAuthException("Issue with parsing response from MSA Token polling.", e);
         } catch (IOException e) {
             throw new CachedAuthException("Could not establish contact with Microsoft.", e);
         }
     }
+    public static MsaTokenResponse pollForMicrosoftAuth(MsaCodeResponse msaInfo, CloseableHttpClient client) throws CachedAuthException {
+        try {
+            HttpPost pollingPost = setupPollPost(msaInfo);
+            for (int i = msaInfo.expiresInSeconds; i > 0; i = i - msaInfo.interval) {
+                MsaTokenResponse response = pollMicrosoftOnce(pollingPost, client);
+                if (response.statusCode == 200) {
+                    return response;
+                } else if (response.errorResponse.error == "authorization_pending") {
+                    Thread.sleep(msaInfo.interval * 1000L); //im sure there's a better way to do timing stuff using fabric
+                } else {
+                    throw new CachedAuthException(
+                            "Issue with authorization checking: `" + response.errorResponse.error + "`: `" + response.errorResponse.errorDescription + "`."
+                    );
+                }
+            }
+            throw new CachedAuthException("Device Code expired");
+        } catch (InterruptedException e) {
+            throw new CachedAuthException("Timing of polling was interrupted.", e);
+        }
+    }
 
-
-    public static void authXboxLive(MsaTokenResponse pollInfo, CloseableHttpClient client) throws CachedAuthException {
+    public static XblResponse authXboxLive(MsaTokenResponse pollInfo, CloseableHttpClient client) throws CachedAuthException {
         try (CloseableHttpResponse request = client.execute(setupXboxLiveAuth(pollInfo))) {
             int statusCode = request.getStatusLine().getStatusCode();
             System.out.println(statusCode);
             String output = EntityUtils.toString(request.getEntity());
 
             if (statusCode == 200) {
-
+                System.out.println(output);
+                return new XblResponse(statusCode, output);
             } else {
                 System.out.println(output);
                 throw new CachedAuthException("Xbox Live not happy");
             }
-
         } catch (IOException e) {
             throw new CachedAuthException("Could not establish contact with XBox Live.");
         }
     }
 
+
     public static void testDeviceFlow() { //need to clean up this messy error handling at some point
         try {
             CloseableHttpClient client = HttpClients.createDefault();
-            MsaCodeResponse msa = getMSAResponse(client);
+            MsaCodeResponse msa = getMsaResponse(client);
             MsaTokenResponse polled = pollForMicrosoftAuth(msa, client);
-            authXboxLive(polled, client);
+            XblResponse xbl = authXboxLive(polled, client);
         } catch (CachedAuthException e) {
             System.out.println("problems");
             System.out.println(e.getMessage());
             System.out.println(Arrays.toString(e.getStackTrace()));
         }
     }
-
 
     public static void refreshTokenAuth(AuthenticationProfile authenticationProfile) {
         try {

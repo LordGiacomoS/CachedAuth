@@ -9,7 +9,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 
 
-public class ErrorResponse extends GenericResponse {
+public class ErrorResponse {
     public String error;
     public String errorDescription;
     public ArrayList<Integer> errorCodes;
@@ -18,11 +18,7 @@ public class ErrorResponse extends GenericResponse {
     public String correlationId;
     public URI errorUri;
 
-    public ErrorResponse(int statusCode) {
-        super(statusCode);
-    }
-    public ErrorResponse(int statusCode, String responseString) {
-        super(statusCode);
+    public ErrorResponse(String responseString) {
         parseResponseString(responseString);
     }
 
