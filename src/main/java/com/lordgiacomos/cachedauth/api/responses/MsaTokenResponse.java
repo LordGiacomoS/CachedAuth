@@ -24,12 +24,12 @@ public class MsaTokenResponse extends GenericResponse {
 
     private void parseResponseString(String responseString) {
         JsonObject json = JsonParser.parseString(responseString).getAsJsonObject();
-        tokenType = json.get("token_type").getAsString();
-        scope = json.get("scope").getAsString();
-        expiresInSeconds = json.get("expires_in").getAsInt();
-        accessToken = json.get("access_token").getAsString();
-        refreshToken = json.get("refresh_token").getAsString();
-        idToken = json.get("id_token").getAsString();
+        this.tokenType = json.get("token_type").getAsString();
+        this.scope = json.get("scope").getAsString();
+        this.expiresInSeconds = json.get("expires_in").getAsInt();
+        this.accessToken = json.get("access_token").getAsString();
+        this.refreshToken = json.get("refresh_token").getAsString();
+        this.idToken = json.get("id_token").getAsString();
     }
 
 }

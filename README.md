@@ -33,9 +33,11 @@ Most of this stuff is roughly ordered by priority
   - [ ] Mod Menu integration
 
 ### Future plans
-- clean up source code from development 
-  - keep my development comments alive in a development branch but filter it all out from master branch
-  - revisit error handling and make it actually good (do I really need custom exception)
+- clean up source code from development
+  - keep my development comments alive in a development branch but filter it all out from master/release branch
+  - revisit error handling and make it actually good (do I really need custom exception?)
+  - remove unnecessary stuff from authentication json parsers & implement datetime handling where necessary
+  - move some of authenticator stuff into AuthorizationSession and other relevant classes(?)
 - Make the mod actually somewhat secure and protected
   - add section to README about how to raise security concerns privately
 - Add debug mode

@@ -22,20 +22,23 @@ public class MsaCodeResponse extends GenericResponse { //should be able to slim 
 
     public MsaCodeResponse(int statusCode, String responseString) {
         super(statusCode);
+    }
+
+    private void parseResponseString(String responseString) {
         JsonObject json = JsonParser.parseString(responseString).getAsJsonObject();
-        userCode = json.get("user_code").getAsString();
-        deviceCode = json.get("device_code").getAsString();
+        this.userCode = json.get("user_code").getAsString();
+        this.deviceCode = json.get("device_code").getAsString();
         try {
-            verificationUri = new URI(json.get("verification_uri").getAsString());
+            this.verificationUri = new URI(json.get("verification_uri").getAsString());
         } catch (URISyntaxException e) {
             System.out.println("could not parse msa verification uri");
             System.out.println(e.getMessage());
             //throw new CachedAuthException("Could not parse MsaCodeResponse verificationUri", e);
-
+            this.verificationUri = null;
             //almost certainly going to be `https://microsoft.com/link` so I should be fine to ignore it
         }
-        expiresInSeconds = json.get("expires_in").getAsInt();
-        interval = json.get("interval").getAsInt();
-        message = json.get("message").getAsString();
+        this.expiresInSeconds = json.get("expires_in").getAsInt();
+        this.interval = json.get("interval").getAsInt();
+        this.message = json.get("message").getAsString();
     }
 }

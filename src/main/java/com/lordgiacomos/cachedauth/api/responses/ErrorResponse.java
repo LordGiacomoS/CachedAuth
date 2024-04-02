@@ -23,22 +23,27 @@ public class ErrorResponse extends GenericResponse {
     }
     public ErrorResponse(int statusCode, String responseString) {
         super(statusCode);
+        parseResponseString(responseString);
+    }
+
+    private void parseResponseString(String responseString) {
         JsonObject json = JsonParser.parseString(responseString).getAsJsonObject();
-        error = json.get("error").getAsString();
-        errorDescription = json.get("error_description").getAsString();
-        errorCodes = new ArrayList<>() {{
+        this.error = json.get("error").getAsString();
+        this.errorDescription = json.get("error_description").getAsString();
+        this.errorCodes = new ArrayList<>() {{
             for (JsonElement element : json.getAsJsonArray("error_codes")) {
                 add(element.getAsInt());
             }
         }};
-        timestamp = json.get("timestamp").getAsString();
-        traceId = json.get("trace_id").getAsString();
-        correlationId = json.get("correlation_id").getAsString();
+        this.timestamp = json.get("timestamp").getAsString();
+        this.traceId = json.get("trace_id").getAsString();
+        this.correlationId = json.get("correlation_id").getAsString();
         try {
-            errorUri = new URI(json.get("error_uri").getAsString());
+            this.errorUri = new URI(json.get("error_uri").getAsString());
         } catch (URISyntaxException e) {
             System.out.println("could not parse error URI");
             System.out.println(e.getMessage());
+            this.errorUri = null;
             //throw new CachedAuthException("Could not parse ErrorResponse URI", e);
             //error uri not that important so I can get away with ignoring it unless I'm debugging this
         }
