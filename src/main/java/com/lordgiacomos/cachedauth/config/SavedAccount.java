@@ -3,9 +3,13 @@ package com.lordgiacomos.cachedauth.config;
 import com.google.gson.JsonObject;
 
 public class SavedAccount {
+    //constant data
     String refreshToken;
 
     //need to add more data here, then make sure ive also added matching stuff in json output
+
+
+    // account session data --
 
 
 

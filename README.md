@@ -18,13 +18,23 @@ Most of this stuff is roughly ordered by priority
 
 ### to get mod "working"
 - [ ] finish oauth implementation and reauthenticating the client
+  - [x] Microsoft Oauth2 device code flow request
+  - [x] Microsoft Oauth2 device code flow polling
+  - [ ] Xbox Live Authentication
+  - [ ] XSTS Token for minecraft
+  - [ ] Authenticate with minecraft
+  - [ ] Check game ownership
+  - [ ] fetch minecraft profile
 - [ ] set up config saving/loading system to store client credentials (use JSON config)
+  - [x] rough layout
+  - [ ] integrate with fabric
 - [ ] create and implement a gui into minecraft
   - [ ] Basic GUI and textures
   - [ ] Mod Menu integration
 
 ### Future plans
 - clean up source code from development
+  - keep my development comments alive in a development branch but filter it all out from master branch
 - Make the mod actually somewhat secure and protected
   - add section to README about how to raise security concerns privately
 - publish to modrinth & maybe curseforge
