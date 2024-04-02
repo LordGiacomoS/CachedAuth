@@ -9,7 +9,6 @@ public class CachedAuth implements ClientModInitializer {
     public static final Logger LOGGER = LogManager.getLogger();
     // implement config storage
 
-
     @Override
     public void onInitializeClient() {
         //load config here

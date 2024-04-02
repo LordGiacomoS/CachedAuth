@@ -17,17 +17,10 @@ public class MsaCodeResponse extends GenericResponse { //should be able to slim 
     public MsaCodeResponse(int statusCode) {
         super(statusCode);
     }
-    public MsaCodeResponse(int statusCode, String responseString, boolean failure) {
-        super(statusCode);
-        if (failure) {
-            setErrorResponse(responseString);
-        } else {
-            parseResponseString(responseString);
-        }
-    }
 
     public MsaCodeResponse(int statusCode, String responseString) {
         super(statusCode);
+        parseResponseString(responseString);
     }
 
     private void parseResponseString(String responseString) {

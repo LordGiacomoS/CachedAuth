@@ -3,6 +3,8 @@ package com.lordgiacomos.cachedauth.api;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
@@ -31,8 +33,6 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     public static final String XBOX_URI = "https://user.auth.xboxlive.com/user/authenticate";
     public static final String CLIENT_ID = System.getenv("CLIENT_ID"); //figure out way to obfuscate this beyond env variable, to allow distribution
     public static final String SCOPES = "user.read offline_access XBoxLive.signin"; // need to add `XboxLive.signin` scope here... I think
-
-
 
     public static HttpPost setupRefreshPost(AuthenticationProfile authenticationProfile) {
         HttpPost post = new HttpPost(MSA_CODE_URI);
@@ -150,19 +150,22 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     public static MsaTokenResponse pollForMicrosoftAuth(MsaCodeResponse msaInfo, CloseableHttpClient client) throws CachedAuthException {
         try {
             HttpPost pollingPost = setupPollPost(msaInfo);
-            for (int i = msaInfo.expiresInSeconds; i > 0; i = i - msaInfo.interval) {
+            System.out.println(msaInfo.expiresInSeconds);
+            System.out.println(msaInfo.interval);
+            for (int i = msaInfo.expiresInSeconds; i > 0; i=i-msaInfo.interval) {
+                System.out.println(i);
                 MsaTokenResponse response = pollMicrosoftOnce(pollingPost, client);
                 if (response.statusCode == 200) {
                     return response;
-                } else if (response.errorResponse.error == "authorization_pending") {
-                    Thread.sleep(msaInfo.interval * 1000L); //im sure there's a better way to do timing stuff using fabric
+                } else if ("authorization_pending".equals(response.errorResponse.error)) {
+                    Thread.sleep(msaInfo.interval * 1000L); //im sure there's a better way to do timing stuff using fabric, maybe ClientTickEvent
                 } else {
                     throw new CachedAuthException(
-                            "Issue with authorization checking: `" + response.errorResponse.error + "`: `" + response.errorResponse.errorDescription + "`."
+                        "Issue with authorization checking: `" + response.errorResponse.error + "`: `" + response.errorResponse.errorDescription + "`."
                     );
                 }
             }
-            throw new CachedAuthException("Device Code expired");
+            throw new CachedAuthException("Input Code expired");
         } catch (InterruptedException e) {
             throw new CachedAuthException("Timing of polling was interrupted.", e);
         }
