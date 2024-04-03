@@ -9,7 +9,7 @@ public class MsaTokenResponse extends GenericResponse {
     public int expiresInSeconds;
     public String accessToken;
     public String refreshToken;
-    public String idToken;
+    //public String idToken;
 
 
     public MsaTokenResponse(int statusCode) {

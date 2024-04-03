@@ -36,17 +36,10 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     public static final String XBOX_AUTH_URI = "https://user.auth.xboxlive.com/user/authenticate";
     public static final String CLIENT_ID = System.getenv("CLIENT_ID"); //figure out way to obfuscate this beyond env variable, to allow distribution
     public static final String SCOPES = "XBoxLive.signin offline_access";//"user.read profile openid offline_access XBoxLive.signin"; // need to add `XboxLive.signin` scope here... I think
-    public static final RequestConfig REQUEST_CONFIG = RequestConfig
-            .custom()
-            .setConnectionRequestTimeout(30_000)
-            .setConnectTimeout(30_000)
-            .setSocketTimeout(30_000)
-            .build();
 
 
     public static HttpPost setupRefreshPost(String refreshToken) {
         HttpPost post = new HttpPost(MSA_TOKEN_URI);
-        post.setConfig(REQUEST_CONFIG);
         post.addHeader("Content-Type", "application/x-www-form-urlencoded");
         post.setEntity(
                 new StringEntity(
@@ -66,7 +59,6 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
                     .build()
             );
             request.addHeader("Content-Type", "x-www-form-urlencoded");
-            request.setConfig(REQUEST_CONFIG);
             return request;
         } catch (URISyntaxException e) {
             throw new CachedAuthException("Issue with setting up request for device code", e);
@@ -75,7 +67,6 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
 
     public static HttpPost setupPollPost(MsaCodeResponse msaInfo) {
         HttpPost post = new HttpPost(MSA_TOKEN_URI);
-        post.setConfig(REQUEST_CONFIG);
         post.addHeader("Content-Type", "application/x-www-form-urlencoded");
         post.setEntity(
                 new StringEntity(
@@ -88,31 +79,8 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
 
     public static HttpPost setupXboxLiveAuth(MsaTokenResponse pollInfo) throws UnsupportedEncodingException {
         HttpPost post = new HttpPost(XBOX_AUTH_URI);
-        post.setConfig(REQUEST_CONFIG);
         post.addHeader("Content-Type", "application/json");
         post.addHeader("Accept", "application/json");
-
-        /*JsonObject postJson = new JsonObject();
-        JsonObject properties = new JsonObject();
-        properties.addProperty("AuthMethod", "RPS");
-        properties.addProperty("SiteName", "user.auth.xboxlive.com");
-        properties.addProperty("RpsTicket", "d=" + pollInfo.accessToken);
-
-        postJson.add("Properties", properties);
-        postJson.addProperty("RelyingParty", "http://user.auth.xboxlive.com");
-        postJson.addProperty("TokenType", "JWT");*/
-
-        /*String postJson = String.format("""
-                {
-                    "Properties": {
-                        "AuthMethod": "RPS",
-                        "SiteName": "user.auth.xboxlive.com",
-                        "RpsTicket": "d=%s"
-                    },
-                    "RelyingParty": "https://user.auth.xboxlive.com",
-                    "TokenType": "JWT"
-                }""", pollInfo.accessToken);
-        System.out.println(postJson);*/
         post.setEntity(
             new StringEntity(
                 String.format("""
@@ -122,10 +90,12 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
                             "SiteName": "user.auth.xboxlive.com",
                             "RpsTicket": "d=%s"
                         },
-                        "RelyingParty": "http://user.auth.xboxlive.com",
+                        "RelyingParty": "http://auth.xboxlive.com",
                         "TokenType": "JWT"
                     }""", pollInfo.accessToken)
             ));
+        // apparently "SiteName" needs to be "user.auth.xboxlive.com" but "RelyingParty" needs to be "http://auth.xboxlive.com"
+        //   thats like 8 hours of me trying to bugfix something incredibly stupid because xbox api gave no info about what i was doing wrong lol
         return post;
     }
 
