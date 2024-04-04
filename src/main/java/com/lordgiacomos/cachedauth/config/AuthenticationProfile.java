@@ -3,16 +3,16 @@ package com.lordgiacomos.cachedauth.config;
 import com.google.gson.JsonObject;
 
 public class AuthenticationProfile {
-    //constant data
+    //cached data
     public String refreshToken;
-    //need to add more data here, then make sure ive also added matching stuff in json output
+    //probs should store stuff like uuid, skins & capes
 
 
     // active session data
     public String accessToken;
     public String xblToken; //Xbox Live token
-    //String userhash;
-    //String xstsToken;
+    public String userhash;
+    public String xstsToken;
 
 
     // building stuff (for when going through flow)
@@ -23,11 +23,18 @@ public class AuthenticationProfile {
     public void setAccessToken(String value) {
         this.accessToken = value;
     }
+
     public void setXblToken(String value) {
         this.xblToken = value;
     }
 
+    public void setUserhash(String value) {
+        this.userhash = value;
+    }
 
+    public void setXstsToken(String value) {
+        this.xstsToken = value;
+    }
 
 
 

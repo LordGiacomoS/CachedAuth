@@ -5,7 +5,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 
-import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.lordgiacomos.cachedauth.CachedAuthException;
 import com.lordgiacomos.cachedauth.api.responses.MsaCodeResponse;
@@ -14,8 +13,6 @@ import com.lordgiacomos.cachedauth.config.AuthenticationProfile;
 import com.lordgiacomos.cachedauth.config.CachedAuthConfig;
 import com.lordgiacomos.cachedauth.config.CachedAuthConfigManager;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -34,6 +31,7 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     public static final String MSA_CODE_URI = "https://login.microsoftonline.com/" + TENANT + "/oauth2/v2.0/devicecode";
     public static final String MSA_TOKEN_URI = "https://login.microsoftonline.com/" + TENANT + "/oauth2/v2.0/token";
     public static final String XBOX_AUTH_URI = "https://user.auth.xboxlive.com/user/authenticate";
+    public static final String XBOX_XSTS_URI = "https://xsts.auth.xboxlive.com/xsts/authorize";
     public static final String CLIENT_ID = System.getenv("CLIENT_ID"); //figure out way to obfuscate this beyond env variable, to allow distribution
     public static final String SCOPES = "XBoxLive.signin offline_access";//"user.read profile openid offline_access XBoxLive.signin"; // need to add `XboxLive.signin` scope here... I think
 
@@ -99,6 +97,28 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         return post;
     }
 
+    public static HttpPost setupXstsFetching(XblResponse xblAuth) throws UnsupportedEncodingException {
+        HttpPost post = new HttpPost(XBOX_XSTS_URI);
+        post.addHeader("Content-Type", "application/json");
+        post.addHeader("Accept", "application/json");
+        post.setEntity(
+            new StringEntity(
+                String.format("""
+                    {
+                        "Properties": {
+                            "SandboxId": "RETAIL",
+                            "UserTokens": [
+                                "%s"
+                            ]
+                        },
+                        "RelyingParty": "rp://api.minecraftservices.com/",
+                        "TokenType": "JWT"
+                    }""", xblAuth.token)
+        ));
+        return post;
+    }
+
+
 
     public static MsaTokenResponse refreshFromToken(String refreshToken, CloseableHttpClient client) throws CachedAuthException {
         try (CloseableHttpResponse request = client.execute(setupRefreshPost(refreshToken))) {
@@ -128,22 +148,20 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
 
             if (entity != null) {
                 String output = EntityUtils.toString(entity);
-                System.out.println(output);
                 return new MsaCodeResponse(statusCode, output);
             } else {
                 throw new CachedAuthException("MSA request invalid"); //need to figure out what Exception should actually go here
             }
         } catch (IOException e) {
-            throw new CachedAuthException("Could not establish contact with Microsoft", e);
+            throw new CachedAuthException("Could not establish contact with Microsoft.", e);
         }
     }
 
     public static MsaTokenResponse pollMicrosoftOnce(HttpPost pollingPost, CloseableHttpClient client) throws CachedAuthException {
         try (CloseableHttpResponse request = client.execute(pollingPost)) {
             int statusCode = request.getStatusLine().getStatusCode();
-            //System.out.println(statusCode);
             String output = EntityUtils.toString(request.getEntity());
-            System.out.println(output);
+            //System.out.println(output);
             return new MsaTokenResponse(statusCode, output);
         } catch (JsonSyntaxException e) {
             throw new CachedAuthException("Issue with parsing response from MSA Token polling.", e);
@@ -154,8 +172,6 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     public static MsaTokenResponse pollForMicrosoftAuth(MsaCodeResponse msaInfo, CloseableHttpClient client) throws CachedAuthException {
         try {
             HttpPost pollingPost = setupPollPost(msaInfo);
-            //System.out.println(msaInfo.expiresInSeconds);
-            //System.out.println(msaInfo.interval);
             for (int i = msaInfo.expiresInSeconds; i > 0; i=i-msaInfo.interval) {
                 System.out.println(i);
                 MsaTokenResponse response = pollMicrosoftOnce(pollingPost, client);
@@ -171,42 +187,67 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
             }
             throw new CachedAuthException("Input Code expired");
         } catch (InterruptedException e) {
-            throw new CachedAuthException("Timing of polling was interrupted.", e);
+            throw new CachedAuthException("Repeated checking for code input was interrupted.", e);
         }
     }
 
-    public static XblResponse authXboxLive(MsaTokenResponse pollInfo) throws CachedAuthException { //, CloseableHttpClient client
-        try (CloseableHttpClient client = HttpClients.createMinimal()) {
-            CloseableHttpResponse request = client.execute(setupXboxLiveAuth(pollInfo));
+    public static XblResponse authXboxLive(MsaTokenResponse pollInfo, CloseableHttpClient client) throws CachedAuthException {
+        try (CloseableHttpResponse request = client.execute(setupXboxLiveAuth(pollInfo))) {
             int statusCode = request.getStatusLine().getStatusCode();
             System.out.println(statusCode);
             String output = EntityUtils.toString(request.getEntity());
 
-
-            System.out.println();
             if (statusCode == 200) {
-                System.out.println(output);
+                //System.out.println(output);
                 return new XblResponse(statusCode, output);
             } else {
                 System.out.println(output);
                 System.out.println(request);
-                throw new CachedAuthException("Xbox Live not happy");
+                throw new CachedAuthException("Xbox Live not happy"); // give more detail about what went wrong if possible (though the api's response to errors makes that nearly impossible)
             }
-        } catch (IOException e) {
-            throw new CachedAuthException("Could not establish contact with XBox Live.");
+        } catch (IOException e) { //this also catches wrongly formed http post stuff so need to subdivide and catch UnsupportedEncodingException separately
+            throw new CachedAuthException("Could not establish contact with XBox Live.", e);
         }
     }
 
+    public static XblResponse getXstsToken(XblResponse xblAuth, CloseableHttpClient client) throws CachedAuthException {
+        try(CloseableHttpResponse request = client.execute(setupXstsFetching(xblAuth))) {
+            int statusCode = request.getStatusLine().getStatusCode();
+            System.out.println(statusCode);
+            String output = EntityUtils.toString(request.getEntity());
+
+            if (statusCode == 200) {
+                return new XblResponse(statusCode, output);
+            } else {
+                System.out.println(output);
+                System.out.println(request);
+                throw new CachedAuthException("minecraft services api not happy");
+            }
+
+        } catch (IOException e) { //this also catches wrongly formed http post stuff so need to subdivide and catch UnsupportedEncodingException separately
+            throw new CachedAuthException("Could not establish contact with `api.minecraftservices.com`.");
+        }
+    }
+
+
+    public static void continueWithMergedFlow(AuthenticationProfile authenticationProfile, CloseableHttpClient client, MsaTokenResponse msaTokenResponse) throws CachedAuthException {
+        authenticationProfile.setAccessToken(msaTokenResponse.accessToken);
+        authenticationProfile.setRefreshToken(msaTokenResponse.refreshToken);
+        XblResponse xblAuth = authXboxLive(msaTokenResponse, client);
+        authenticationProfile.setXblToken(xblAuth.token);
+        XblResponse xblXsts = getXstsToken(xblAuth, client);
+        System.out.println(CachedAuthConfig.GSON.toJson(xblXsts));
+
+    }
 
     public static void testDeviceFlow() { //need to clean up this messy error handling at some point
         AuthenticationProfile authenticationProfile = CachedAuthConfig.getAuthenticationProfiles().get(0);
         try {
             CloseableHttpClient client = HttpClients.createDefault();
             MsaCodeResponse msa = getMsaResponse(client);
+            System.out.println(msa.userCode);
             MsaTokenResponse polled = pollForMicrosoftAuth(msa, client);
-            authenticationProfile.setAccessToken(polled.accessToken);
-            authenticationProfile.setRefreshToken(polled.refreshToken);
-            XblResponse xbl = authXboxLive(polled);//, client);
+            continueWithMergedFlow(authenticationProfile, client, polled);
         } catch (CachedAuthException e) {
             System.out.println("problems");
             System.out.println(e.getMessage());
@@ -218,12 +259,7 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         try {
             CloseableHttpClient client = HttpClients.createDefault();
             MsaTokenResponse refreshed = refreshFromToken(authenticationProfile.refreshToken, client);
-            //update authentication profile info here
-            authenticationProfile.setAccessToken(refreshed.accessToken);
-            authenticationProfile.setRefreshToken(refreshed.refreshToken);
-
-            XblResponse xbl = authXboxLive(refreshed);//, client);
-
+            continueWithMergedFlow(authenticationProfile, client, refreshed);
         } catch (CachedAuthException e) {
             System.out.println("problems");
             System.out.println(e.getMessage());
