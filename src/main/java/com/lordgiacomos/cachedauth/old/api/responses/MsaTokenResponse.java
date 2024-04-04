@@ -1,4 +1,4 @@
-package com.lordgiacomos.cachedauth.api.responses;
+package com.lordgiacomos.cachedauth.old.api.responses;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;

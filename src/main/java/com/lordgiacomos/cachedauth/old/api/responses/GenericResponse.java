@@ -1,4 +1,4 @@
-package com.lordgiacomos.cachedauth.api.responses;
+package com.lordgiacomos.cachedauth.old.api.responses;
 
 public class GenericResponse {
     public int statusCode;

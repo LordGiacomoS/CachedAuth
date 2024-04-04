@@ -1,6 +1,7 @@
 package com.lordgiacomos.cachedauth.config;
 
 import com.google.gson.*;
+import com.lordgiacomos.cachedauth.ApiTestingEntrypoint;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -58,7 +59,7 @@ public class CachedAuthConfigManager {
         config.add("savedProfiles", savedProfiles);
 
         //String jsonString = CachedAuthClientInit.GSON.toJson(config);
-        String jsonString = CachedAuthConfig.GSON.toJson(config);
+        String jsonString = ApiTestingEntrypoint.GSON.toJson(config);
         try (FileWriter fileWriter = new FileWriter(file)) {
             fileWriter.write(jsonString);
         } catch (IOException e) {

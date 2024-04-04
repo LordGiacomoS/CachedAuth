@@ -1,4 +1,4 @@
-package com.lordgiacomos.cachedauth.api;
+package com.lordgiacomos.cachedauth.old.api;
 
 import com.lordgiacomos.cachedauth.config.CachedAuthConfig;
 import com.lordgiacomos.cachedauth.config.CachedAuthConfigManager;

@@ -1,4 +1,4 @@
-package com.lordgiacomos.cachedauth.api;
+package com.lordgiacomos.cachedauth.old.api;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -7,8 +7,10 @@ import java.util.Arrays;
 
 import com.google.gson.JsonSyntaxException;
 import com.lordgiacomos.cachedauth.CachedAuthException;
-import com.lordgiacomos.cachedauth.api.responses.MsaCodeResponse;
-import com.lordgiacomos.cachedauth.api.responses.MsaTokenResponse;
+import com.lordgiacomos.cachedauth.old.api.responses.AuthMinecraftResponse;
+import com.lordgiacomos.cachedauth.old.api.responses.MsaCodeResponse;
+import com.lordgiacomos.cachedauth.old.api.responses.XblResponse;
+import com.lordgiacomos.cachedauth.old.api.responses.MsaTokenResponse;
 import com.lordgiacomos.cachedauth.config.AuthenticationProfile;
 import com.lordgiacomos.cachedauth.config.CachedAuthConfig;
 import com.lordgiacomos.cachedauth.config.CachedAuthConfigManager;
@@ -23,8 +25,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
-import com.lordgiacomos.cachedauth.api.responses.*;
-
+import com.lordgiacomos.cachedauth.old.api.responses.*;
 
 public class Authenticator { //bunch of stuff here uses `sout` rather than logger, fine for while I'm just testing api, but once Fabric gets involved with this code, it'll yell at me
     public static final String TENANT = "consumers"; // can't use common bc xbox doesn't like that
