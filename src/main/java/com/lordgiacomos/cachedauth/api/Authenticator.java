@@ -32,6 +32,7 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     public static final String MSA_TOKEN_URI = "https://login.microsoftonline.com/" + TENANT + "/oauth2/v2.0/token";
     public static final String XBOX_AUTH_URI = "https://user.auth.xboxlive.com/user/authenticate";
     public static final String XBOX_XSTS_URI = "https://xsts.auth.xboxlive.com/xsts/authorize";
+    public static final String MINECREAFT_AUTH_URI = "https://api.minecraftservices.com/authentication/login_with_xbox";
     public static final String CLIENT_ID = System.getenv("CLIENT_ID"); //figure out way to obfuscate this beyond env variable, to allow distribution
     public static final String SCOPES = "XBoxLive.signin offline_access";//"user.read profile openid offline_access XBoxLive.signin"; // need to add `XboxLive.signin` scope here... I think
 
@@ -75,7 +76,7 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         return post;
     }
 
-    public static HttpPost setupXboxLiveAuth(MsaTokenResponse pollInfo) throws UnsupportedEncodingException {
+    public static HttpPost setupXboxLiveAuthenticationPost(MsaTokenResponse pollInfo) throws UnsupportedEncodingException {
         HttpPost post = new HttpPost(XBOX_AUTH_URI);
         post.addHeader("Content-Type", "application/json");
         post.addHeader("Accept", "application/json");
@@ -97,7 +98,7 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         return post;
     }
 
-    public static HttpPost setupXstsFetching(XblResponse xblAuth) throws UnsupportedEncodingException {
+    public static HttpPost setupXstsFetchingPost(XblResponse xblAuth) throws UnsupportedEncodingException {
         HttpPost post = new HttpPost(XBOX_XSTS_URI);
         post.addHeader("Content-Type", "application/json");
         post.addHeader("Accept", "application/json");
@@ -118,7 +119,19 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         return post;
     }
 
-
+    public static HttpPost setupMinecraftAuthenticationPost(XblResponse xblXsts) throws UnsupportedEncodingException {
+        HttpPost post = new HttpPost(MINECREAFT_AUTH_URI);
+        post.addHeader("Content-Type", "application/json");
+        //post.addHeader("Accept", "application/json"); this one doesnt need this weirdly
+        post.setEntity(
+            new StringEntity(
+                String.format("""
+                    {
+                        "identityToken": "XBL3.0 x=%s;%s"
+                    }""", xblXsts.userhash, xblXsts.token)
+        ));
+        return post;
+    }
 
     public static MsaTokenResponse refreshFromToken(String refreshToken, CloseableHttpClient client) throws CachedAuthException {
         try (CloseableHttpResponse request = client.execute(setupRefreshPost(refreshToken))) {
@@ -139,6 +152,8 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
             throw new CachedAuthException("Could not establish contact with Microsoft.", e);
         }
     }
+
+
 
     public static MsaCodeResponse getMsaResponse(CloseableHttpClient client) throws CachedAuthException {
         try (CloseableHttpResponse request = client.execute(setupMsaRequest())) {
@@ -192,7 +207,7 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     }
 
     public static XblResponse authXboxLive(MsaTokenResponse pollInfo, CloseableHttpClient client) throws CachedAuthException {
-        try (CloseableHttpResponse request = client.execute(setupXboxLiveAuth(pollInfo))) {
+        try (CloseableHttpResponse request = client.execute(setupXboxLiveAuthenticationPost(pollInfo))) {
             int statusCode = request.getStatusLine().getStatusCode();
             System.out.println(statusCode);
             String output = EntityUtils.toString(request.getEntity());
@@ -211,23 +226,51 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
     }
 
     public static XblResponse getXstsToken(XblResponse xblAuth, CloseableHttpClient client) throws CachedAuthException {
-        try(CloseableHttpResponse request = client.execute(setupXstsFetching(xblAuth))) {
+        try(CloseableHttpResponse request = client.execute(setupXstsFetchingPost(xblAuth))) {
             int statusCode = request.getStatusLine().getStatusCode();
             System.out.println(statusCode);
             String output = EntityUtils.toString(request.getEntity());
 
             if (statusCode == 200) {
                 return new XblResponse(statusCode, output);
-            } else {
+            } else { //add handling for xboxlive errors due to age & stuff
+                System.out.println(output);
+                System.out.println(request);
+                throw new CachedAuthException("XBox Live not happy");
+            }
+
+        } catch (IOException e) { //this also catches wrongly formed http post stuff so need to subdivide and catch UnsupportedEncodingException separately
+            throw new CachedAuthException("Could not establish contact with XBox Live.", e);
+        }
+    }
+
+    public static AuthMinecraftResponse authMinecraft(XblResponse xblXsts, CloseableHttpClient client) throws CachedAuthException {
+        try(CloseableHttpResponse request = client.execute(setupMinecraftAuthenticationPost(xblXsts))) {
+            int statusCode = request.getStatusLine().getStatusCode();
+            System.out.println(statusCode);
+            String output = EntityUtils.toString(request.getEntity());
+
+            if (statusCode == 200) {
+                System.out.println(output);
+                return new AuthMinecraftResponse(statusCode, output);
+            } else { //add check mentioning that if using custom oauth client, you need to fill out and get approved the form at `https://aka.ms/mce-reviewappid` -- see console output on next line to know what to look for
+                /*403
+{
+  "path" : "/authentication/login_with_xbox",
+  "errorMessage" : "Invalid app registration, see https://aka.ms/AppRegInfo for more information"
+}
+HttpResponseProxy{HTTP/1.1 403 Forbidden [Date: Thu, 04 Apr 2024 15:36:20 GMT, Content-Type: application/json, Content-Length: 147, Connection: keep-alive, x-minecraft-request-id: ccb5ef8bf380b174, Cache-Control: no-store, x-azure-ref: 20240404T153620Z-179b4d87857tgwfxsr6mt1naxg000000063g000000006v0c, X-Cache: TCP_MISS] ResponseEntityProxy{[Content-Type: application/json,Content-Length: 147,Chunked: false]}}
+problems
+minecraft services api not happy*/
                 System.out.println(output);
                 System.out.println(request);
                 throw new CachedAuthException("minecraft services api not happy");
             }
-
         } catch (IOException e) { //this also catches wrongly formed http post stuff so need to subdivide and catch UnsupportedEncodingException separately
             throw new CachedAuthException("Could not establish contact with `api.minecraftservices.com`.");
         }
     }
+
 
 
     public static void continueWithMergedFlow(AuthenticationProfile authenticationProfile, CloseableHttpClient client, MsaTokenResponse msaTokenResponse) throws CachedAuthException {
@@ -236,8 +279,12 @@ public class Authenticator { //bunch of stuff here uses `sout` rather than logge
         XblResponse xblAuth = authXboxLive(msaTokenResponse, client);
         authenticationProfile.setXblToken(xblAuth.token);
         XblResponse xblXsts = getXstsToken(xblAuth, client);
-        System.out.println(CachedAuthConfig.GSON.toJson(xblXsts));
-
+        authenticationProfile.setUserhash(xblXsts.userhash);
+        // may wanna add failsafe check that `xblAuth.userhash == xblXsts.userhash` are the same even though they shouldn't ever be different, and if they were, it would probably give another error later
+        // -- add this as debug mode feature?
+        //System.out.println(CachedAuthConfig.GSON.toJson(xblXsts));
+        authenticationProfile.setXstsToken(xblXsts.token);
+        AuthMinecraftResponse authMinecraftResponse = authMinecraft(xblXsts, client);
     }
 
     public static void testDeviceFlow() { //need to clean up this messy error handling at some point
