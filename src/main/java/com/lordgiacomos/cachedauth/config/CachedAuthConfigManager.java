@@ -44,7 +44,6 @@ public class CachedAuthConfigManager {
         } catch (IOException e) {
             System.out.println("unable to load config");
         }
-
     }
 
     public static void save() {
